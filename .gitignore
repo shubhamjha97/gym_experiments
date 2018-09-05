@@ -1,0 +1,4 @@
+*.pyc
+sftp-config.json
+tensorboard/*
+__pycache__/*
