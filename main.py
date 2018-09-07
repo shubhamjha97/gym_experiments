@@ -21,8 +21,9 @@ def test(agent, env, num_runs = 10, render=False):
 	return all_runs_rew
 
 if __name__=='__main__':
-	env_ = Environment(env_name="LunarLander-v2", render = False)
+	# env_ = Environment(env_name="LunarLander-v2", render = False)
+	env_ = Environment(env_name="CartPole-v0", render = False)
 	agent = PolicyGradients(env_)
-	agent.train(env_, episodes=3000, lr=0.01)
+	agent.train(env_, episodes=3000, lr=0.001)
 	print('Training done')
 	test(agent, env_)

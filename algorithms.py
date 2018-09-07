@@ -11,8 +11,9 @@ class PolicyGradients:
 		self.action_space = self.env_.env.action_space
 		self.num_actions = self.action_space.n
 		self.state_size = self.env_.env.observation_space.shape[0]
-		self.hidden1_size = 10
-		self.hidden2_size = 10
+		self.hidden1_size = 64
+		self.hidden2_size = 32
+		# self.hidden3_size = 10
 		self.moving_reward = None
 
 		self.state_placeholder = tf.placeholder(shape=[None, self.state_size], dtype=tf.float32, name='state')
@@ -20,14 +21,14 @@ class PolicyGradients:
 		self.actions_placeholder = tf.placeholder(shape=[None, self.num_actions], dtype=tf.float32, name='actions')
 		self.learning_rate = tf.placeholder(dtype=tf.float32, name='lr')
 
-		self.hidden1 = tf.nn.relu(tf.layers.dense(self.state_placeholder, self.hidden1_size, kernel_initializer = tf.contrib.layers.xavier_initializer(seed=1), activation=None, name='hidden1'))
-		self.hidden2 = tf.nn.relu(tf.layers.dense(self.hidden1, self.hidden2_size, kernel_initializer = tf.contrib.layers.xavier_initializer(seed=1), activation=None, name='hidden2'))
-		self.action_logits = tf.layers.dense(self.hidden2, self.num_actions, kernel_initializer = tf.contrib.layers.xavier_initializer(seed=1), activation=None, name='action_logits')
+		self.hidden1 = tf.nn.relu(tf.layers.dense(self.state_placeholder, self.hidden1_size, kernel_initializer = tf.contrib.layers.xavier_initializer(), activation=None, name='hidden1'))
+		self.hidden2 = tf.nn.relu(tf.layers.dense(self.hidden1, self.hidden2_size, kernel_initializer = tf.contrib.layers.xavier_initializer(), activation=None, name='hidden2'))
+		self.action_logits = tf.layers.dense(self.hidden2, self.num_actions, kernel_initializer = tf.contrib.layers.xavier_initializer(), activation=None, name='action_logits')
 		self.action_probs = tf.nn.softmax(self.action_logits, axis=1, name='action_probs')
 		self.log_likelihood = tf.log(tf.clip_by_value(self.action_probs, 0.000001, 0.999999, name='clip'), name='log_likelihood')
 
 		with tf.name_scope("loss_fn"):
-			self.loss = -tf.reduce_mean(tf.multiply(self.returns_placeholder, tf.reduce_sum(tf.multiply(self.log_likelihood, self.actions_placeholder), axis=1)))
+			self.loss = tf.reduce_mean(tf.multiply(self.returns_placeholder, tf.reduce_sum(tf.multiply(self.log_likelihood, self.actions_placeholder), axis=1))) #removing the minus works!! why??
 
 		# with tf.name_scope('loss'):
 		# 	self.neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(logits=self.action_logits, labels=self.actions_placeholder)
@@ -36,10 +37,12 @@ class PolicyGradients:
 		self.optim_step = tf.train.AdamOptimizer(learning_rate = self.learning_rate).minimize(self.loss)
 
 		# For debugging
+		with tf.variable_scope('action_logits', reuse=True):
+			self.w_action_logits = tf.get_variable('kernel')
 		with tf.variable_scope('hidden2', reuse=True):
-			self.w = tf.get_variable('kernel')
-		self.temp_grad = tf.gradients(self.loss, self.w)
-
+			self.w_hidden = tf.get_variable('kernel')
+		self.temp_grad = tf.gradients(self.loss, self.w_action_logits)
+		
 		self.sess = tf.Session()
 		self.summary_op = tf.summary.merge_all()
 		self.writer = tf.summary.FileWriter("tensorboard/", self.sess.graph)
@@ -62,7 +65,7 @@ class PolicyGradients:
 				action = self.action(obs)
 				temp['state'] = obs
 				temp['action'] = action
-				obs, reward, done, info = self.env_.step(self.action(obs)) #(episode%1==0))
+				obs, reward, done, info = self.env_.step(action)
 				temp['reward'] = reward
 				self.buffer_.append(temp)
 			if self.moving_reward is None:
@@ -99,7 +102,7 @@ class PolicyGradients:
 			temp_action = x['action']
 			actions[i, temp_action] = 1
 
-		__, loss_= self.sess.run([self.optim_step, self.loss], feed_dict={self.state_placeholder: states, self.returns_placeholder:returns, self.actions_placeholder:actions,self.learning_rate:lr})
+		__, loss_, temp_grad_ = self.sess.run([self.optim_step, self.loss, self.temp_grad], feed_dict={self.state_placeholder: states, self.returns_placeholder:returns, self.actions_placeholder:actions, self.learning_rate:lr})
 
 class RandomAgent:
 	def __init__(self, env_):
