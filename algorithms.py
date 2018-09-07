@@ -13,7 +13,6 @@ class PolicyGradients:
 		self.state_size = self.env_.env.observation_space.shape[0]
 		self.hidden1_size = 64
 		self.hidden2_size = 32
-		# self.hidden3_size = 10
 		self.moving_reward = None
 
 		self.state_placeholder = tf.placeholder(shape=[None, self.state_size], dtype=tf.float32, name='state')
@@ -28,11 +27,7 @@ class PolicyGradients:
 		self.log_likelihood = tf.log(tf.clip_by_value(self.action_probs, 0.000001, 0.999999, name='clip'), name='log_likelihood')
 
 		with tf.name_scope("loss_fn"):
-			self.loss = tf.reduce_mean(tf.multiply(self.returns_placeholder, tf.reduce_sum(tf.multiply(self.log_likelihood, self.actions_placeholder), axis=1))) #removing the minus works!! why??
-
-		# with tf.name_scope('loss'):
-		# 	self.neg_log_prob = tf.nn.softmax_cross_entropy_with_logits(logits=self.action_logits, labels=self.actions_placeholder)
-		# 	self.loss = tf.reduce_mean(self.neg_log_prob * self.returns_placeholder)  # reward guided loss
+			self.loss = -tf.reduce_mean(tf.multiply(self.returns_placeholder, tf.multiply(self.log_likelihood, self.actions_placeholder)))
 
 		self.optim_step = tf.train.AdamOptimizer(learning_rate = self.learning_rate).minimize(self.loss)
 
@@ -49,7 +44,7 @@ class PolicyGradients:
 		self.writer.close()
 		self.sess.run(tf.global_variables_initializer())
 
-	def train(self, env, episodes = 10, lr = 0.01, gamma = 0.95):
+	def train(self, env, episodes = 10, lr = 0.01, gamma = 0.95, update_steps = 10):
 		self.gamma = gamma
 		self.lr = lr
 		all_moving_rewards=[]
@@ -66,7 +61,10 @@ class PolicyGradients:
 				temp['state'] = obs
 				temp['action'] = action
 				obs, reward, done, info = self.env_.step(action)
+				# if episode>1350:
+				# 	self.env_.env.render()
 				temp['reward'] = reward
+				# print(reward)
 				self.buffer_.append(temp)
 			if self.moving_reward is None:
 				self.moving_reward = float(sum(x['reward'] for x in self.buffer_))
@@ -102,7 +100,7 @@ class PolicyGradients:
 			temp_action = x['action']
 			actions[i, temp_action] = 1
 
-		__, loss_, temp_grad_ = self.sess.run([self.optim_step, self.loss, self.temp_grad], feed_dict={self.state_placeholder: states, self.returns_placeholder:returns, self.actions_placeholder:actions, self.learning_rate:lr})
+		__, loss_, temp_w = self.sess.run([self.optim_step, self.loss, self.w_hidden], feed_dict={self.state_placeholder: states, self.returns_placeholder:returns, self.actions_placeholder:actions, self.learning_rate:lr})
 
 class RandomAgent:
 	def __init__(self, env_):
