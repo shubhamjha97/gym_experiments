@@ -27,7 +27,8 @@ class PolicyGradients:
 		self.log_likelihood = tf.log(tf.clip_by_value(self.action_probs, 0.000001, 0.999999, name='clip'), name='log_likelihood')
 
 		with tf.name_scope("loss_fn"):
-			self.loss = -tf.reduce_mean(tf.multiply(self.returns_placeholder, tf.multiply(self.log_likelihood, self.actions_placeholder)))
+			self.loss = -tf.reduce_mean(tf.multiply(self.returns_placeholder, tf.reshape(tf.reduce_sum(tf.multiply(self.log_likelihood, self.actions_placeholder), axis=1), [-1, 1])), axis=0)
+			# self.loss = -tf.reduce_mean(tf.multiply(self.returns_placeholder, tf.reduce_sum(tf.multiply(self.log_likelihood, self.actions_placeholder), axis=1)))
 
 		self.optim_step = tf.train.AdamOptimizer(learning_rate = self.learning_rate).minimize(self.loss)
 
@@ -101,6 +102,7 @@ class PolicyGradients:
 			actions[i, temp_action] = 1
 
 		__, loss_, temp_w = self.sess.run([self.optim_step, self.loss, self.w_hidden], feed_dict={self.state_placeholder: states, self.returns_placeholder:returns, self.actions_placeholder:actions, self.learning_rate:lr})
+		# print(self.loss.get_shape())
 
 class RandomAgent:
 	def __init__(self, env_):
