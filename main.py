@@ -1,6 +1,6 @@
 import numpy as np
 from environment import Environment
-from algorithms import RandomAgent, PolicyGradients
+from algorithms import RandomAgent, PolicyGradients, DQN
 
 
 def test(agent, env, num_runs = 10, render=False):
@@ -24,7 +24,9 @@ if __name__=='__main__':
 	# env_ = Environment(env_name="LunarLander-v2", render = False)
 	# env_ = Environment(env_name="MountainCar-v0", render = False)
 	env_ = Environment(env_name="CartPole-v1", render = False)
-	agent = PolicyGradients(env_)
-	agent.train(env_, episodes=6000, lr=0.001, gamma=1)
+	# agent = PolicyGradients(env_)
+	agent = DQN(env_, buffer_size = 500000, batch_size = 512)
+	agent.train(env_, episodes=6000, lr=0.01, gamma=1)
+
 	print('Training done')
 	test(agent, env_)
